@@ -1,0 +1,15 @@
+[
+  {
+    "type": "function",
+    "name": "buyAndBurn",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  }
+]
