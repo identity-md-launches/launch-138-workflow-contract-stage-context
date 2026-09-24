@@ -1,0 +1,26 @@
+{
+  "kind": "univ4_hook",
+  "hook": {
+    "contract": "PvPadHook",
+    "constructorArgs": [
+      "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543"
+    ],
+    "permissions": [
+      "beforeInitialize",
+      "beforeSwap"
+    ]
+  },
+  "token": {
+    "contract": "PVP",
+    "name": "Pepe Values Pepe",
+    "symbol": "PVP",
+    "decimals": 18
+  },
+  "pool": {
+    "pairedCurrency": "0x0000000000000000000000000000000000000000",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "initialPrice": "79228162514264337593543950336000"
+  },
+  "notes": "PvPad launch of PVP on Sepolia (chainId 11155111, the only approved chain). Technical description only: supply, the 10/80/10 split, treasury, contributor lock, owner/updater identities, gas and seed limits come from the separately versioned launch policy and are not stated here.\n\nHOOK. PvPadHook (src/PvPadHook.sol, ABI docs/abi/PvPadHook.json) is a gate-only hook with no owner, fee setter, pause, custody, upgrade path, SELFDESTRUCT or DELEGATECALL. Its constructor has exactly one parameter, IPoolManager manager, so constructorArgs is exactly one literal address: the Uniswap v4 PoolManager on Sepolia named by the approved workflow. Nothing else is baked into the creation code and nothing else is ever added to constructorArgs. The pad and the PVP token are wired later by the one-shot bind(pad, pvp), which PvPad.initialize calls on the hook once both exist; bind checks msg.sender == pad, pad.hook() == this, pad.poolManager() == manager and pad.token() == pvp, and a second call reverts. getHookPermissions returns beforeInitialize (bit 13) and beforeSwap (bit 7) only: flags 0x2080 = 8320 under mask 0x3fff. Every other permission, including all four return-delta permissions, is false; the constructor calls Hooks.validateHookPermissions, so deployment at an address with other bits reverts (CREATE2 salt mined offline with scripts/mine-hook.py). Both callbacks require msg.sender == poolManager, sender == the bound pad and the exact key (currency0 native ETH, currency1 PVP, fee 3000, tickSpacing 60, hooks == this). beforeSwap returns a zero delta and no fee override; liquidity add/remove and donate are never intercepted, so LP exit is not gated. hookData and tx.origin are ignored. Before PvPad.initialize an unbound hook can be griefed by a foreign bind (no funds at risk, redeploy needed); docs/deployment.md closes the window.\n\nTOKEN. PVP (src/PVP.sol, ABI docs/abi/PVP.json): OpenZeppelin ERC20 + ERC20Burnable, name Pepe Values Pepe, symbol PVP, 18 decimals. The zero-argument constructor mints 10^27 minor units (1000000000 PVP) to msg.sender, the factory, and nothing else. No owner, mint, pause, proxy or upgrade path; supply only falls through burn/burnFrom.\n\nPOOL. pairedCurrency is native ETH (Currency address zero): currency0 = ETH, currency1 = PVP, fee 3000 (0.30% static LP fee), tickSpacing 60, the only key PvPadHook and PvPad.poolKey() accept. initialPrice is sqrtPriceX96 in decimal for a starting price of 1,000,000 PVP per 1 ETH (price = currency1/currency0 = 1e6 in minor units, both 18 decimals, tick 138162): sqrt(1e6) * 2^96 = 1000 * 79228162514264337593543950336. The approved workflow fixes no price and the repository tests use a 1:1 fixture, so this value is a manifest choice open to review; changing it changes only the initialize argument. The hook accepts only the pad as sender, so the pool is opened by PvPad.initialize(hook, sqrtPriceX96) from the pad's deployer, not by a direct PoolManager.initialize call. Trades go through PvPad.buy/sell, which charge a fixed 100 bps pad fee routed via PvPadFeeRouter to the KingOfThePad beneficiary; the LP fee stays in the pool. WorkerSubsidy, KingOfThePad, PvPadFeeRouter, PvPad and the optional PvPadBurner have no field in the univ4_hook schema; see docs/deployment.md.\n\nTOOLCHAIN. solc 0.8.26, cancun, optimizer 200 runs, via_ir false, bytecode_hash none, cbor_metadata false (foundry.toml); dependencies vendored in lib/ (docs/dependencies.json).\n\nCHECKS. forge build and forge test offline: 122 tests pass. Protected floor suites pass locally (9/9): Hook.protected.t.sol with IMD_HOOK_FLAGS=8320, IMD_POOL_MANAGER = the Sepolia PoolManager (etched) and the single PoolManager word appended to the creation code; Token.protected.t.sol with IMD_TOKEN_DECIMALS=18. A local PoolManager opened the ETH/PVP pool through PvPad at this initialPrice and completed a buy and a sell. Not deployed, not fork-rehearsed, not audited; independent review is a separate assignment (docs/review-notes.md)."
+}
